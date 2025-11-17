@@ -1,0 +1,19 @@
+# ---- Java / Spring Boot ----
+/ecommerce-backend/target/
+/ecommerce-backend/.classpath
+/ecommerce-backend/.project
+/ecommerce-backend/.settings/
+/ecommerce-backend/*.iml
+
+# ---- Node / React ----
+/ecommerce-frontend/node_modules/
+/ecommerce-frontend/dist/
+/ecommerce-frontend/.env
+npm-debug.log*
+
+# ---- Global ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
