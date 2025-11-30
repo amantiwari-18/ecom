@@ -1,0 +1,19 @@
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--card);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  padding: 0.4rem 0;
+  display: flex;
+  justify-content: space-around;
+  z-index: 999;
+}
+
+.mobile-nav button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.9rem;
+}

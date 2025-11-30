@@ -1,0 +1,20 @@
+.desktop-nav {
+  display: flex;
+  justify-content: space-between;
+  background: var(--card);
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.logo {
+  color: var(--primary);
+  margin: 0;
+}
+
+.menu button {
+  background: none;
+  border: none;
+  margin-left: 1rem;
+  font-size: 1rem;
+  color: var(--primary);
+}

@@ -1,0 +1,28 @@
+/* src/AppTheme.css */
+
+/* Light mode */
+:root {
+  --bg: #f5f5f7;
+  --fg: #111;
+  --card: #fff;
+  --primary: #007bff;
+  --radius: 14px;
+  --shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --fg: #f1f1f1;
+    --card: #1e1e1e;
+    --primary: #4ea3ff;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
