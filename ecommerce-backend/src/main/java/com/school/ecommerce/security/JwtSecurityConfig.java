@@ -16,19 +16,17 @@ public class JwtSecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configure(http)) // enable CORS
+                .cors(Customizer.withDefaults())
 
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // 🔥 allow every endpoint for now
-                )
+                        .anyRequest().permitAll())
 
                 .httpBasic(Customizer.withDefaults())
-                .formLogin(form -> form.disable()); // disable login redirect 403
+                .formLogin(form -> form.disable());
 
         return http.build();
     }
 
-    // Needed for UserServiceImpl (fixes your startup error)
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

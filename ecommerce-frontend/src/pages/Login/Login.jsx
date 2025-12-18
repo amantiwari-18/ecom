@@ -42,13 +42,8 @@ const Login = () => {
         return;
       }
 
-      if (role === ROLES.ADMIN || role === "ADMIN") {
-        // Admin -> admin area (users page as admin dashboard)
-        navigate("/admin/users", { replace: true });
-      } else {
-        // Non-admin -> fallback to original 'from' or dashboard
-        navigate(from || "/dashboard", { replace: true });
-      }
+      // Redirect all users to the Home page; Home will route to admin sections when appropriate
+      navigate("/home", { replace: true });
     } catch (err) {
       console.error(err);
       setError(

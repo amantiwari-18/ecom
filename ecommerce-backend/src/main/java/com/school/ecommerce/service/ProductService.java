@@ -6,10 +6,16 @@ import java.util.List;
 
 public interface ProductService {
     ProductDTO create(ProductDTO dto);
+
+    ProductDTO createWithImage(ProductDTO dto);
+
     ProductDTO getById(String id);
+
     List<ProductDTO> getAll();
+
     List<ProductDTO> getByCategory(String categoryId);
+
     ProductDTO update(String id, ProductDTO dto);
+
     void delete(String id);
 }
-

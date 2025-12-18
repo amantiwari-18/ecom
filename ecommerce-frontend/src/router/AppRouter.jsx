@@ -9,9 +9,11 @@ import {
 import Login from "../pages/Login/Login";
 import Register from "../pages/Register/Register";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import Home from "../pages/Home/Home";
 import ManageUsers from "../pages/Admin/ManageUsers";
 import ManageProducts from "../pages/Admin/ManageProducts";
 import ManageInventory from "../pages/Admin/ManageInventory";
+import ManageCategories from "../pages/Admin/ManageCategories";
 import Profile from "../pages/User/Profile";
 import Orders from "../pages/User/Orders";
 
@@ -29,7 +31,8 @@ const AppRouter = () => {
         {/* User routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<UserLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/home" replace />} />
+            <Route path="/home" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/orders" element={<Orders />} />
@@ -42,6 +45,7 @@ const AppRouter = () => {
             <Route path="/admin/users" element={<ManageUsers />} />
             <Route path="/admin/products" element={<ManageProducts />} />
             <Route path="/admin/inventory" element={<ManageInventory />} />
+            <Route path="/admin/categories" element={<ManageCategories />} />
           </Route>
         </Route>
 
