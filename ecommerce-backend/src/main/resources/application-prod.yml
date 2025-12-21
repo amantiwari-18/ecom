@@ -4,8 +4,6 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI}
-  profiles:
-    active: prod
 
 server:
   port: ${PORT:8080}
