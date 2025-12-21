@@ -12,38 +12,28 @@ public class MongoConfig {
 
     @Bean
     public MongoDatabaseFactory mongoDatabaseFactory() {
+
         String envUri = System.getenv("MONGODB_URI");
         String envDb = System.getenv("MONGODB_DB");
-        final String defaultDb = (envDb == null || envDb.isBlank())
+
+        String database = (envDb == null || envDb.isBlank())
                 ? "ecommerce_db"
                 : envDb;
 
-        String uri = (envUri == null || envUri.isBlank())
-                ? "mongodb://localhost:27017/" + defaultDb
-                : envUri.trim();
-
-        try {
-            ConnectionString cs = new ConnectionString(uri);
-
-            if (cs.getDatabase() == null || cs.getDatabase().isBlank()) {
-                int q = uri.indexOf("?");
-                String base = (q == -1) ? uri : uri.substring(0, q);
-                String query = (q == -1) ? "" : uri.substring(q);
-
-                if (base.endsWith("/")) {
-                    base = base.substring(0, base.length() - 1);
-                }
-
-                uri = base + "/" + defaultDb + query;
-                cs = new ConnectionString(uri);
-            }
-
-            return new SimpleMongoClientDatabaseFactory(cs);
-
-        } catch (IllegalArgumentException ex) {
-            return new SimpleMongoClientDatabaseFactory(
-                    new ConnectionString("mongodb://localhost:27017/" + defaultDb));
+        String uri;
+        if (envUri == null || envUri.isBlank()) {
+            uri = "mongodb://localhost:27017/" + database;
+        } else {
+            uri = envUri.trim();
         }
+
+        ConnectionString connectionString = new ConnectionString(uri);
+
+        if (connectionString.getDatabase() == null || connectionString.getDatabase().isBlank()) {
+            connectionString = new ConnectionString(uri + "/" + database);
+        }
+
+        return new SimpleMongoClientDatabaseFactory(connectionString);
     }
 
     @Bean
