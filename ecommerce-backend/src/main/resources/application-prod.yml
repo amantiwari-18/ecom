@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: ecommerce-backend
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+  profiles:
+    active: prod
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+
+logging:
+  level:
+    root: INFO
+    com.school.ecommerce: INFO

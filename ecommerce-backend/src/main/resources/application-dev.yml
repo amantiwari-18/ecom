@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: ecommerce-backend
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/ecommerce
+  profiles:
+    active: dev
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: DEBUG
+    com.school.ecommerce: DEBUG

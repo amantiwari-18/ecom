@@ -1,0 +1,7 @@
+[build]
+  builder = "dockerfile"
+
+[deploy]
+  startCommand = "java -jar ecommerce-backend.jar --spring.profiles.active=prod"
+  restartPolicyMaxRetries = 5
+  restartPolicyWindowSeconds = 600
