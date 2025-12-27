@@ -1,6 +1,7 @@
 package com.school.ecommerce.controller;
 
 import com.school.ecommerce.dto.ProductDTO;
+import com.school.ecommerce.model.ExternalLink;
 import com.school.ecommerce.service.ProductService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -80,4 +81,32 @@ public class ProductController {
         productService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/external-links")
+    public ResponseEntity<ProductDTO> updateExternalLinks(
+            @PathVariable String id,
+            @RequestBody List<ExternalLink> externalLinks) {
+
+        return ResponseEntity.ok(
+                productService.updateExternalLinks(id, externalLinks));
+    }
+
+    @PutMapping("/{id}/platforms")
+    public ResponseEntity<ProductDTO> updatePlatforms(
+            @PathVariable String id,
+            @RequestBody List<String> platforms) {
+
+        return ResponseEntity.ok(
+                productService.updatePlatforms(id, platforms));
+    }
+
+    @PutMapping("/{id}/images")
+    public ResponseEntity<ProductDTO> updateImages(
+            @PathVariable String id,
+            @RequestParam List<MultipartFile> images) {
+
+        return ResponseEntity.ok(
+                productService.updateImages(id, images));
+    }
+
 }

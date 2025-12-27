@@ -1,13 +1,16 @@
 ﻿import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
+import CustomerDashboard from "./components/CustomerDashboard";
+import ProductDetail from "./components/ProductDetail";
+import MainLayout from "./components/MainLayout";
 import "./App.css";
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -33,43 +36,48 @@ function App() {
     setUser(null);
   };
 
-  const handleRegisterSuccess = () => {
-    setShowRegister(false);
-  };
-
   if (loading) {
     return <div className="loading-screen">Loading...</div>;
   }
 
   return (
-    <div className="App">
-      {!user ? (
-        showRegister ? (
-          <Register
-            onRegister={handleRegisterSuccess}
-            onSwitchToLogin={() => setShowRegister(false)}
+    <Router>
+      <div className="App">
+        <Routes>
+          {/* Public Routes */}
+          <Route 
+            path="/login" 
+            element={
+              user ? <Navigate to="/" /> : 
+              <Login onLogin={handleLogin} />
+            } 
           />
-        ) : (
-          <Login
-            onLogin={handleLogin}
-            onSwitchToRegister={() => setShowRegister(true)}
+          <Route 
+            path="/register" 
+            element={
+              user ? <Navigate to="/" /> : 
+              <Register />
+            } 
           />
-        )
-      ) : (
-        <>
-          <div className="app-header">
-            <div className="header-left">
-              <h2>Welcome, {user.email || "User"}</h2>
-              {user.role && <span className="role-badge">{user.role}</span>}
-            </div>
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-          <Dashboard />
-        </>
-      )}
-    </div>
+
+          {/* Protected Routes */}
+          {user ? (
+            <Route element={<MainLayout user={user} onLogout={handleLogout} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              
+              {/* Customer routes */}
+              <Route path="/" element={<CustomerDashboard />} />
+              <Route path="/products" element={<CustomerDashboard />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              
+              <Route path="*" element={<Navigate to="/" />} />
+            </Route>
+          ) : (
+            <Route path="*" element={<Navigate to="/login" />} />
+          )}
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

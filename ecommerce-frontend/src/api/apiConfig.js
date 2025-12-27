@@ -1,21 +1,77 @@
-﻿import axios from "axios";
+﻿// services/api.service.js
+const API_BASE_URL = 'http://localhost:8080/api'; // Update with your backend URL
 
-export const API_BASE = import.meta.env.VITE_API_URL || "https://your-backend-domain.com";
+class ApiService {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
 
-const api = axios.create({
-  baseURL: API_BASE,
-});
+  // Generic request method
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
+    // Add auth token if available
+    const token = localStorage.getItem('authToken');
     if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
-export default api;
+    const config = {
+      ...options,
+      headers,
+    };
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          message: `HTTP error! status: ${response.status}`,
+        }));
+        throw new Error(error.message || 'Request failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`API Error (${endpoint}):`, error);
+      throw error;
+    }
+  }
+
+  // HTTP Methods
+  get(endpoint) {
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  post(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  put(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  patch(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  delete(endpoint) {
+    return this.request(endpoint, { method: 'DELETE' });
+  }
+}
+
+export default new ApiService();
