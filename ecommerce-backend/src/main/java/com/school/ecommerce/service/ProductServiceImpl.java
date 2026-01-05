@@ -34,7 +34,6 @@ public class ProductServiceImpl implements ProductService {
         product.setImages(dto.getImages() != null ? dto.getImages() : new ArrayList<>());
         product.setExternalLinks(dto.getExternalLinks());
         product.setAvailablePlatforms(dto.getAvailablePlatforms());
-        product.setLocalSale(dto.isLocalSale());
 
         return convertToDTO(productRepository.save(product));
     }
@@ -48,7 +47,6 @@ public class ProductServiceImpl implements ProductService {
         product.setPrice(dto.getPrice());
         product.setCategoryId(dto.getCategoryId());
         product.setAvailablePlatforms(dto.getAvailablePlatforms());
-        product.setLocalSale(dto.isLocalSale());
 
         List<String> images = new ArrayList<>();
         if (dto.getImage() != null && !dto.getImage().isEmpty()) {
@@ -171,7 +169,6 @@ public class ProductServiceImpl implements ProductService {
         dto.setImages(product.getImages());
         dto.setExternalLinks(product.getExternalLinks());
         dto.setAvailablePlatforms(product.getAvailablePlatforms());
-        dto.setLocalSale(product.isLocalSale());
 
         return dto;
     }

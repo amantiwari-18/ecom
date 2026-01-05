@@ -1,200 +1,317 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as apiService from '../services/api.service';
+import React, { useState, useEffect } from 'react';
 import FormModal from './FormModal';
-import DeleteConfirmation from './DeleteConfirmation';
 import './DataManager.css';
 
 const DataManager = ({ section }) => {
-  const [items, setItems] = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  const hasInitialized = useRef(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    // Reset initialization when section changes
-    hasInitialized.current = false;
-  }, [section]);
+  const API_BASE_URL = 'http://localhost:8080/api';
 
-  useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      fetchItems();
+  // API endpoints based on section
+  const getApiEndpoint = () => {
+    switch(section) {
+      case 'products':
+        return `${API_BASE_URL}/products/aman-get-all`;
+      case 'categories':
+        return `${API_BASE_URL}/categories`;
+      case 'inventory':
+        return `${API_BASE_URL}/inventory`;
+      default:
+        return '';
     }
-  }, [section]);
+  };
 
-  const fetchItems = async () => {
+  const getDeleteEndpoint = (id) => {
+    switch(section) {
+      case 'products':
+        return `${API_BASE_URL}/products/aman-delete/${id}`;
+      case 'categories':
+        return `${API_BASE_URL}/categories/${id}`;
+      case 'inventory':
+        return `${API_BASE_URL}/inventory/${id}`;
+      default:
+        return '';
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [section, refreshKey]);
+
+  const fetchData = async () => {
     setLoading(true);
+    setError('');
     try {
-      let response;
-      if (section === 'products') {
-        response = await apiService.getProducts();
-      } else if (section === 'categories') {
-        response = await apiService.getCategories();
-      } else if (section === 'inventory') {
-        response = await apiService.getInventory();
+      const url = getApiEndpoint();
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      setItems(response.data);
-    } catch (error) {
-      console.error('Error fetching items:', error);
+
+      const result = await response.json();
+      
+      // Handle response format for Aman APIs
+      if (section === 'products') {
+        if (result.success && result.products) {
+          setData(result.products);
+        } else if (Array.isArray(result)) {
+          setData(result);
+        } else {
+          setData([]);
+        }
+      } else if (Array.isArray(result)) {
+        setData(result);
+      } else {
+        setData([]);
+      }
+    } catch (err) {
+      console.error(`Error fetching ${section}:`, err);
+      setError(`Failed to load ${section}. Please try again.`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleCreate = () => {
     setSelectedItem(null);
-    setIsEditing(false);
     setShowModal(true);
   };
 
   const handleEdit = (item) => {
     setSelectedItem(item);
-    setIsEditing(true);
     setShowModal(true);
   };
 
-  const handleDelete = (item) => {
-    setSelectedItem(item);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = async () => {
+  const handleDelete = async (id) => {
+    // REMOVED CONFIRMATION DIALOG AS REQUESTED
     try {
-      if (section === 'products') {
-        await apiService.deleteProduct(selectedItem.id);
-      } else if (section === 'categories') {
-        await apiService.deleteCategory(selectedItem.id);
+      const url = getDeleteEndpoint(id);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Delete failed: ${errorText}`);
       }
-      setShowDeleteConfirm(false);
-      fetchItems();
-    } catch (error) {
-      console.error('Error deleting item:', error);
+
+      // Refresh data
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error(`Error deleting ${section.slice(0, -1)}:`, err);
+      alert(`Delete failed. Please try again.`);
     }
   };
 
-  const handleSave = async (data) => {
-    await fetchItems();
+  const handleSaveSuccess = () => {
+    setShowModal(false);
+    setRefreshKey(prev => prev + 1);
   };
 
-  if (loading) {
-    return <div className="loading">Loading...</div>;
-  }
+  const getColumns = () => {
+    switch (section) {
+      case 'products':
+        return [
+          { key: 'name', label: 'Name' },
+          { key: 'price', label: 'Price', format: (value) => `$${parseFloat(value || 0).toFixed(2)}` },
+          { key: 'categoryId', label: 'Category ID' },
+          { 
+            key: 'images', 
+            label: 'Image', 
+            format: (images) => images && images.length > 0 ? (
+              <img 
+                src={`http://localhost:8080${images[0]}`}
+                alt="Product" 
+                className="product-thumbnail" 
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIGZpbGw9IiMyRTJBMzkiLz48cGF0aCBkPSJNMzAgMjAuNUMzMCAyMi43MSAyOC4yMSAyNC41IDI2IDI0LjVDMjMuNzkgMjQuNSAyMiAyMi43MSAyMiAyMC41QzIyIDE4LjI5IDIzLjc5IDE2LjUgMjYgMTYuNUMyOC4yMSAxNi41IDMwIDE4LjI5IDMwIDIwLjVaTTI2IDI4LjVDMjEuMzEgMjguNSAxNy4yNCAzMS4yNiAxNSAzNS41TDM3IDM1LjVDMzQuNzYgMzEuMjYgMzAuNjkgMjguNSAyNiAyOC41Wk0xMCAxNUMxMCAxMy44OTUgMTAuODk1IDEzIDEyIDEzSDQwQzQxLjEwNSAxMyA0MiAxMy44OTUgNDIgMTVWMzVDNDIgMzYuMTA1IDQxLjEwNSAzNyA0MCAzN0gxMkMxMC44OTUgMzcgMTAgMzYuMTA1IDEwIDM1VjE1WiIgZmlsbD0iIzQ3NTU2OSIvPjwvc3ZnPg==';
+                }}
+              />
+            ) : 'No Image'
+          },
+          { 
+            key: 'availablePlatforms', 
+            label: 'Platforms', 
+            format: (platforms) => platforms && platforms.length > 0 ? (
+              <div className="platform-tags">
+                {platforms.slice(0, 2).map((p, i) => (
+                  <span key={i} className="platform-tag">{p}</span>
+                ))}
+                {platforms.length > 2 && (
+                  <span className="platform-tag-more">+{platforms.length - 2}</span>
+                )}
+              </div>
+            ) : 'None'
+          },
+          { 
+            key: 'externalLinks', 
+            label: 'Links', 
+            format: (links) => links && links.length > 0 ? (
+              <div className="links-count">{links.length} links</div>
+            ) : 'None'
+          },
+        ];
+
+      case 'categories':
+        return [
+          { key: 'name', label: 'Name' },
+          { key: 'description', label: 'Description' },
+          { key: 'id', label: 'ID' },
+        ];
+
+      case 'inventory':
+        return [
+          { key: 'productId', label: 'Product ID' },
+          { key: 'stock', label: 'Stock', format: (value) => (
+            <span className={`stock-badge ${value > 0 ? 'in-stock' : 'out-of-stock'}`}>
+              {value}
+            </span>
+          )},
+          { key: 'restockThreshold', label: 'Restock At' },
+        ];
+
+      default:
+        return [];
+    }
+  };
+
+  const renderTable = () => {
+    const columns = getColumns();
+
+    if (loading) {
+      return (
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Loading {section}...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="error-container">
+          <p className="error-message">{error}</p>
+          <button onClick={fetchData} className="retry-btn">
+            Retry
+          </button>
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="empty-state">
+          <div className="empty-icon">📦</div>
+          <p>No {section} found. Create your first one!</p>
+          <button onClick={handleCreate} className="create-first-btn">
+            Create New
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <th key={col.key}>{col.label}</th>
+              ))}
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item, index) => (
+              <tr key={item.id || item._id || index}>
+                {columns.map((col) => {
+                  const value = item[col.key];
+                  return (
+                    <td key={col.key}>
+                      {col.format ? col.format(value) : value || '-'}
+                    </td>
+                  );
+                })}
+                <td className="actions-cell">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="action-btn edit-btn"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id || item._id)}
+                    className="action-btn delete-btn"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className="data-manager">
-      <div className="header">
-        <h2>{section.charAt(0).toUpperCase() + section.slice(1)}</h2>
-        {section !== 'inventory' && (
-          <button className="create-btn" onClick={handleCreate}>
-            + Add New
-          </button>
+      <div className="header-section">
+        <div>
+          <h2 className="section-title">
+            {section.charAt(0).toUpperCase() + section.slice(1)} Management
+          </h2>
+          <p className="section-description">
+            {section === 'products' && 'Manage products, images, and external links'}
+            {section === 'categories' && 'Organize products into categories'}
+            {section === 'inventory' && 'Track stock levels'}
+          </p>
+        </div>
+        <button onClick={handleCreate} className="create-btn">
+          + Create New
+        </button>
+      </div>
+
+      <div className="stats-cards">
+        <div className="stat-card">
+          <h3>Total {section}</h3>
+          <p className="stat-number">{data.length}</p>
+        </div>
+        {section === 'products' && (
+          <>
+            <div className="stat-card">
+              <h3>With Images</h3>
+              <p className="stat-number">
+                {data.filter(item => item.images && item.images.length > 0).length}
+              </p>
+            </div>
+            <div className="stat-card">
+              <h3>With Platforms</h3>
+              <p className="stat-number">
+                {data.filter(item => item.availablePlatforms && item.availablePlatforms.length > 0).length}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
-      {items.length === 0 ? (
-        <p className="no-items">No {section} found.</p>
-      ) : (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {section === 'products' && (
-                  <>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Price</th>
-                    <th>Category</th>
-                    <th>Actions</th>
-                  </>
-                )}
-                {section === 'categories' && (
-                  <>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Actions</th>
-                  </>
-                )}
-                {section === 'inventory' && (
-                  <>
-                    <th>Product ID</th>
-                    <th>Quantity</th>
-                    <th>Last Updated</th>
-                    <th>Actions</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id || item.productId}>
-                  {section === 'products' && (
-                    <>
-                      <td>{item.id}</td>
-                      <td>{item.name}</td>
-                      <td>₹{item.price}</td>
-                      <td>{item.categoryId}</td>
-                      <td className="actions">
-                        <button className="edit-btn" onClick={() => handleEdit(item)}>
-                          Edit
-                        </button>
-                        <button className="delete-btn" onClick={() => handleDelete(item)}>
-                          Delete
-                        </button>
-                      </td>
-                    </>
-                  )}
-                  {section === 'categories' && (
-                    <>
-                      <td>{item.id}</td>
-                      <td>{item.name}</td>
-                      <td>{item.description}</td>
-                      <td className="actions">
-                        <button className="edit-btn" onClick={() => handleEdit(item)}>
-                          Edit
-                        </button>
-                        <button className="delete-btn" onClick={() => handleDelete(item)}>
-                          Delete
-                        </button>
-                      </td>
-                    </>
-                  )}
-                  {section === 'inventory' && (
-                    <>
-                      <td>{item.productId}</td>
-                      <td>{item.quantity}</td>
-                      <td>{new Date(item.lastUpdated).toLocaleDateString()}</td>
-                      <td className="actions">
-                        <button className="edit-btn" onClick={() => handleEdit(item)}>
-                          Edit
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {renderTable()}
 
       {showModal && (
         <FormModal
           section={section}
-          item={isEditing ? selectedItem : null}
-          onSave={handleSave}
-          onClose={() => setShowModal(false)}
-        />
-      )}
-
-      {showDeleteConfirm && (
-        <DeleteConfirmation
           item={selectedItem}
-          onConfirm={confirmDelete}
-          onCancel={() => setShowDeleteConfirm(false)}
+          onSave={handleSaveSuccess}
+          onClose={() => setShowModal(false)}
         />
       )}
     </div>

@@ -17,13 +17,12 @@ public class Product {
     private List<ExternalLink> externalLinks;
 
     private List<String> availablePlatforms;
-    private boolean isLocalSale;
 
     public Product() {
     }
 
     public Product(String id, String name, String description, double price, String categoryId,
-            List<String> images, List<String> availablePlatforms, boolean isLocalSale) {
+            List<String> images, List<String> availablePlatforms) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -31,7 +30,7 @@ public class Product {
         this.categoryId = categoryId;
         this.images = images;
         this.availablePlatforms = availablePlatforms;
-        this.isLocalSale = isLocalSale;
+
     }
 
     public String getId() {
@@ -60,6 +59,11 @@ public class Product {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    // Add this method to get all images
+    public List<String> getImageUrls() {
+        return images;
     }
 
     public String getDescription() {
@@ -100,13 +104,5 @@ public class Product {
 
     public void setAvailablePlatforms(List<String> availablePlatforms) {
         this.availablePlatforms = availablePlatforms;
-    }
-
-    public boolean isLocalSale() {
-        return isLocalSale;
-    }
-
-    public void setLocalSale(boolean localSale) {
-        isLocalSale = localSale;
     }
 }

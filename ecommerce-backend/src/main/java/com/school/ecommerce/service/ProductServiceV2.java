@@ -73,11 +73,6 @@ public class ProductServiceV2 {
         // query.addCriteria(Criteria.where("inStock").is(filter.getInStock()));
         // }
 
-        // // Filter by local sale
-        // if (filter.getLocalSale() != null) {
-        // query.addCriteria(Criteria.where("localSale").is(filter.getLocalSale()));
-        // }
-
         // Filter by platforms
         if (filter.getPlatforms() != null && !filter.getPlatforms().isEmpty()) {
             query.addCriteria(Criteria.where("availablePlatforms").in(filter.getPlatforms()));
@@ -226,8 +221,7 @@ public class ProductServiceV2 {
         // Products with discount or local sale
         Query query = new Query();
         query.addCriteria(new Criteria().orOperator(
-                Criteria.where("discount").gt(0),
-                Criteria.where("localSale").is(true)));
+                Criteria.where("discount").gt(0)));
         query.with(Sort.by(Sort.Direction.DESC, "discount"));
         query.limit(limit);
 
@@ -405,7 +399,6 @@ public class ProductServiceV2 {
         existing.setImages(dto.getImages());
         existing.setAvailablePlatforms(dto.getAvailablePlatforms());
         existing.setExternalLinks(dto.getExternalLinks());
-        existing.setLocalSale(dto.isLocalSale());
         // existing.setUpdatedAt(LocalDateTime.now());
 
         Product updated = productRepository.save(existing);
@@ -477,7 +470,6 @@ public class ProductServiceV2 {
         dto.setImages(product.getImages());
         dto.setAvailablePlatforms(product.getAvailablePlatforms());
         dto.setExternalLinks(product.getExternalLinks());
-        dto.setLocalSale(product.isLocalSale());
         // dto.setHits(product.getHits());
         // dto.setCreatedAt(product.getCreatedAt());
         // dto.setUpdatedAt(product.getUpdatedAt());
@@ -501,7 +493,6 @@ public class ProductServiceV2 {
         product.setImages(dto.getImages());
         product.setAvailablePlatforms(dto.getAvailablePlatforms());
         product.setExternalLinks(dto.getExternalLinks());
-        product.setLocalSale(dto.isLocalSale());
         // product.setHits(dto.getHits());
 
         return product;

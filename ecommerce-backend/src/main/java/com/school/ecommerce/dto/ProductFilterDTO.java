@@ -9,7 +9,6 @@ public class ProductFilterDTO {
     private Double minPrice;
     private Double maxPrice;
     private Boolean inStock;
-    private Boolean localSale;
     private List<String> platforms;
     private Boolean hasExternalLinks;
     private Boolean isNew;
@@ -23,7 +22,7 @@ public class ProductFilterDTO {
     }
 
     public ProductFilterDTO(String search, String category, Double minPrice, Double maxPrice,
-            Boolean inStock, Boolean localSale, List<String> platforms,
+            Boolean inStock, List<String> platforms,
             Boolean hasExternalLinks, Boolean isNew, String sortBy,
             int page, int limit, boolean includeHits) {
         this.search = search;
@@ -31,7 +30,6 @@ public class ProductFilterDTO {
         this.minPrice = minPrice;
         this.maxPrice = maxPrice;
         this.inStock = inStock;
-        this.localSale = localSale;
         this.platforms = platforms;
         this.hasExternalLinks = hasExternalLinks;
         this.isNew = isNew;
@@ -53,7 +51,6 @@ public class ProductFilterDTO {
         private Double minPrice;
         private Double maxPrice;
         private Boolean inStock;
-        private Boolean localSale;
         private List<String> platforms;
         private Boolean hasExternalLinks;
         private Boolean isNew;
@@ -84,11 +81,6 @@ public class ProductFilterDTO {
 
         public Builder inStock(Boolean inStock) {
             this.inStock = inStock;
-            return this;
-        }
-
-        public Builder localSale(Boolean localSale) {
-            this.localSale = localSale;
             return this;
         }
 
@@ -129,7 +121,7 @@ public class ProductFilterDTO {
 
         public ProductFilterDTO build() {
             return new ProductFilterDTO(
-                    search, category, minPrice, maxPrice, inStock, localSale,
+                    search, category, minPrice, maxPrice, inStock,
                     platforms, hasExternalLinks, isNew, sortBy, page, limit, includeHits);
         }
     }
@@ -173,14 +165,6 @@ public class ProductFilterDTO {
 
     public void setInStock(Boolean inStock) {
         this.inStock = inStock;
-    }
-
-    public Boolean getLocalSale() {
-        return localSale;
-    }
-
-    public void setLocalSale(Boolean localSale) {
-        this.localSale = localSale;
     }
 
     public List<String> getPlatforms() {

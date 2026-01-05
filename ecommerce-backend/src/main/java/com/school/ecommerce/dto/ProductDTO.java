@@ -19,7 +19,6 @@ public class ProductDTO {
     private List<String> images;
     private List<String> availablePlatforms;
     private List<ExternalLink> externalLinks;
-    private boolean localSale;
     private MultipartFile image;
     private int hits;
     private LocalDateTime createdAt;

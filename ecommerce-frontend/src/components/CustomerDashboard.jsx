@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../services/api.service';
 import ProductCard from './ProductCard';
@@ -14,7 +14,9 @@ const CustomerDashboard = () => {
   // State
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 12,
@@ -30,18 +32,12 @@ const CustomerDashboard = () => {
     category: '',
     minPrice: '',
     maxPrice: '',
-    inStock: false,
-    localSale: false,
     platforms: [],
     sortBy: 'newest',
-    page: 1
+    page: 1,
+    limit: 12,
+    includeHits: false
   });
-  
-  // Featured collections
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [trendingProducts, setTrendingProducts] = useState([]);
-  const [newArrivals, setNewArrivals] = useState([]);
-  const [saleProducts, setSaleProducts] = useState([]);
   
   // Categories
   const [categories, setCategories] = useState([]);
@@ -51,9 +47,13 @@ const CustomerDashboard = () => {
   
   // Debounce timer
   const searchDebounceTimer = useRef(null);
+  // Track if we've already loaded
+  const hasLoadedRef = useRef(false);
   
-  // Parse URL parameters
+  // Parse URL parameters - ONLY ONCE on mount
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    
     const params = new URLSearchParams(location.search);
     const parsedFilters = {
       search: params.get('search') || '',
@@ -62,101 +62,119 @@ const CustomerDashboard = () => {
       maxPrice: params.get('maxPrice') ? parseFloat(params.get('maxPrice')) : '',
       inStock: params.get('inStock') === 'true',
       localSale: params.get('localSale') === 'true',
+      hasExternalLinks: params.get('hasExternalLinks') === 'true',
+      isNew: params.get('isNew') === 'true',
       platforms: params.getAll('platforms') || [],
       sortBy: params.get('sortBy') || 'newest',
-      page: parseInt(params.get('page') || '1')
+      page: parseInt(params.get('page') || '1'),
+      limit: 12,
+      includeHits: false
     };
     
+    // console.log('Parsed URL filters:', parsedFilters);
     setFilters(parsedFilters);
+    hasLoadedRef.current = true;
   }, [location.search]);
   
-  // Load categories
-  const loadCategories = async () => {
-    try {
-      const categoriesData = await apiService.getCategories();
-      setCategories(categoriesData);
-    } catch (err) {
-      console.error('Error loading categories:', err);
-    }
-  };
-  
-  // Load products
-  const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Clean filters - remove empty values
-      const cleanFilters = {};
-      Object.entries(filters).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          if (value.length > 0) cleanFilters[key] = value;
-        } else if (typeof value === 'string') {
-          if (value.trim() !== '') cleanFilters[key] = value;
-        } else if (typeof value === 'number') {
-          if (!isNaN(value)) cleanFilters[key] = value;
-        } else if (typeof value === 'boolean') {
-          cleanFilters[key] = value;
-        }
-      });
-      
-      const response = await apiService.getProducts({
-        ...cleanFilters,
-        limit: 12,
-        page: cleanFilters.page || 1
-      });
-      
-      setProducts(response.data);
-      setPagination(response.pagination);
-      
-      // Update URL
-      const params = new URLSearchParams();
-      Object.entries(cleanFilters).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          value.forEach(item => params.append(key, item));
-        } else if (value !== '' && value !== null && value !== undefined) {
-          params.append(key, String(value));
-        }
-      });
-      
-      navigate(`?${params.toString()}`, { replace: true });
-      
-    } catch (err) {
-      console.error('Error loading products:', err);
-      setError('Failed to load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, navigate]);
-  
-  // Load featured collections
-  const loadFeaturedCollections = async () => {
-    try {
-      const [featured, trending, newArrivalsData, sale] = await Promise.all([
-        apiService.getFeaturedProducts(8),
-        apiService.getTrendingProducts(8),
-        apiService.getNewArrivals(8),
-        apiService.getProductsOnSale(8)
-      ]);
-      
-      setFeaturedProducts(featured);
-      setTrendingProducts(trending);
-      setNewArrivals(newArrivalsData);
-      setSaleProducts(sale);
-    } catch (err) {
-      console.error('Error loading featured collections:', err);
-    }
-  };
-  
-  // Initial load
+  // Load categories - ONLY ONCE on mount
   useEffect(() => {
-    loadProducts();
-    loadFeaturedCollections();
+    const loadCategories = async () => {
+      try {
+        // console.log('Loading categories...');
+        const categoriesData = await apiService.getCategories();
+        // console.log('Categories loaded:', categoriesData);
+        setCategories(categoriesData);
+      } catch (err) {
+        // console.error('Error loading categories:', err);
+        setCategories([]);
+      }
+    };
+    
     loadCategories();
-  }, [loadProducts]);
+  }, []); // Empty dependency array - run only once
+  
+  // Load products - ONLY when filters change
+  useEffect(() => {
+    const loadProducts = async () => {
+      // Don't load if it's initial mount (we'll load after URL parsing)
+      if (initialLoad) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Clean filters - convert empty strings to undefined
+        const cleanFilters = { ...filters };
+        if (cleanFilters.minPrice === '') delete cleanFilters.minPrice;
+        if (cleanFilters.maxPrice === '') delete cleanFilters.maxPrice;
+        if (cleanFilters.search === '') delete cleanFilters.search;
+        if (cleanFilters.category === '') delete cleanFilters.category;
+        
+        // console.log('Loading products with filters:', cleanFilters);
+        
+        const response = await apiService.getProducts(cleanFilters);
+        // console.log('API Response received:', response);
+        
+        if (response && response.data) {
+          setProducts(response.data);
+          setPagination(response.pagination || {
+            page: cleanFilters.page || 1,
+            limit: cleanFilters.limit || 12,
+            total: response.data.length,
+            totalPages: Math.ceil(response.data.length / (cleanFilters.limit || 12)),
+            hasNext: false,
+            hasPrev: false
+          });
+        } else {
+          // console.warn('No products data in response');
+          setProducts([]);
+          setPagination({
+            page: cleanFilters.page || 1,
+            limit: cleanFilters.limit || 12,
+            total: 0,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false
+          });
+        }
+        
+        // Update URL for sharing
+        const params = new URLSearchParams();
+        Object.entries(cleanFilters).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            value.forEach(item => params.append(key, item));
+          } else if (value !== '' && value !== null && value !== undefined) {
+            params.append(key, String(value));
+          }
+        });
+        
+        navigate(`?${params.toString()}`, { replace: true });
+        
+      } catch (err) {
+        // console.error('Error loading products:', err);
+        setError('Failed to load products. Please try again.');
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadProducts();
+  }, [filters, navigate, initialLoad]);
+  
+  // Set initialLoad to false after first render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoad(false);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   // Handle filter changes with debounce for search
   const handleFilterChange = (newFilters) => {
+    // console.log('Filter change:', newFilters);
+    
     if (newFilters.search !== undefined) {
       // Debounce search
       if (searchDebounceTimer.current) {
@@ -216,16 +234,19 @@ const CustomerDashboard = () => {
       category: '',
       minPrice: '',
       maxPrice: '',
-      inStock: false,
-      localSale: false,
       platforms: [],
       sortBy: 'newest',
-      page: 1
+      page: 1,
+      limit: 12,
+      includeHits: false
     });
     
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
     }
+    
+    // Close mobile menu after clearing
+    setShowMobileMenu(false);
   };
   
   // Handle category filter
@@ -234,129 +255,114 @@ const CustomerDashboard = () => {
       category: categoryId,
       page: 1
     });
+    // Close mobile menu after selecting category
+    setShowMobileMenu(false);
   };
   
-  // Render featured collection section
-  const renderCollectionSection = (title, products, type, icon) => {
-    if (products.length === 0) return null;
-    
-    return (
-      <section className="featured-collection">
-        <div className="section-header">
-          <div className="section-title">
-            <i className={`fas fa-${icon}`}></i>
-            <h2>{title}</h2>
-          </div>
-          <button 
-            className="view-all-btn"
-            onClick={() => navigate(`/products?${type}=true`)}
-          >
-            View All
-          </button>
-        </div>
-        <div className="products-grid compact">
-          {products.slice(0, 4).map(product => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              compact={true}
-            />
-          ))}
-        </div>
-      </section>
-    );
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
   };
   
-  // Render filter sidebar
-  const renderFiltersSidebar = () => (
-    <div className="filters-sidebar">
-      <div className="filters-header">
-        <h3>Filters</h3>
-        <button className="clear-filters" onClick={handleClearFilters}>
-          Clear All
+  // Handle logout
+  const handleLogout = () => {
+    apiService.logout();
+    navigate('/login');
+  };
+  
+  // Render mobile menu (drawer)
+  const renderMobileMenu = () => (
+    <div className={`mobile-menu ${showMobileMenu ? 'show' : ''}`}>
+      <div className="mobile-menu-header">
+        <h3>Filters & Menu</h3>
+        <button className="close-menu-btn" onClick={() => setShowMobileMenu(false)}>
+          <i className="fas fa-times"></i>
         </button>
       </div>
       
-      {/* Category Filter */}
-      <div className="filter-section">
-        <h4>Category</h4>
-        <div className="category-filters">
-          <button 
-            className={`category-chip ${!filters.category ? 'active' : ''}`}
-            onClick={() => handleCategoryFilter('')}
-          >
-            All Categories
-          </button>
-          {categories.slice(0, 10).map(category => (
-            <button
-              key={category.id}
-              className={`category-chip ${filters.category === category.id ? 'active' : ''}`}
-              onClick={() => handleCategoryFilter(category.id)}
+      <div className="mobile-menu-content">
+        {/* User Info */}
+        <div className="mobile-user-info">
+          <div className="user-avatar">
+            <i className="fas fa-user"></i>
+          </div>
+          <div className="user-details">
+            <div className="user-name">user1@gmail.com</div>
+            <div className="user-role">CUSTOMER</div>
+          </div>
+        </div>
+        
+        {/* Category Filter */}
+        <div className="mobile-filter-section">
+          <h4>Categories</h4>
+          <div className="category-filters">
+            <button 
+              className={`category-chip ${!filters.category ? 'active' : ''}`}
+              onClick={() => handleCategoryFilter('')}
             >
-              {category.name}
+              All Categories
             </button>
-          ))}
+            {categories.slice(0, 10).map(category => (
+              <button
+                key={category.id || category._id}
+                className={`category-chip ${filters.category === (category.id || category._id) ? 'active' : ''}`}
+                onClick={() => handleCategoryFilter(category.id || category._id)}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-      
-      {/* Price Filter */}
-      <div className="filter-section">
-        <h4>Price Range</h4>
-        <div className="price-inputs">
-          <input
-            type="number"
-            placeholder="Min"
-            value={filters.minPrice || ''}
-            onChange={(e) => handleFilterChange({ minPrice: e.target.value })}
-          />
-          <span>to</span>
-          <input
-            type="number"
-            placeholder="Max"
-            value={filters.maxPrice || ''}
-            onChange={(e) => handleFilterChange({ maxPrice: e.target.value })}
-          />
+        
+        {/* Price Filter */}
+        <div className="mobile-filter-section">
+          <h4>Price Range</h4>
+          <div className="price-inputs">
+            <input
+              type="number"
+              placeholder="Min"
+              value={filters.minPrice || ''}
+              onChange={(e) => handleFilterChange({ minPrice: e.target.value })}
+              min="0"
+            />
+            <span>to</span>
+            <input
+              type="number"
+              placeholder="Max"
+              value={filters.maxPrice || ''}
+              onChange={(e) => handleFilterChange({ maxPrice: e.target.value })}
+              min="0"
+            />
+          </div>
         </div>
-      </div>
-      
-      {/* Stock Filter */}
-      <div className="filter-section">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={filters.inStock}
-            onChange={(e) => handleFilterChange({ inStock: e.target.checked })}
-          />
-          <span>In Stock Only</span>
-        </label>
-      </div>
-      
-      {/* Local Sale Filter */}
-      <div className="filter-section">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={filters.localSale}
-            onChange={(e) => handleFilterChange({ localSale: e.target.checked })}
-          />
-          <span>Local Sale Only</span>
-        </label>
-      </div>
-      
-      {/* Platforms Filter */}
-      <div className="filter-section">
-        <h4>Available Platforms</h4>
-        <div className="platform-filters">
-          {platformOptions.map(platform => (
-            <label key={platform} className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={filters.platforms.includes(platform)}
-                onChange={() => handlePlatformToggle(platform)}
-              />
-              <span>{platform}</span>
-            </label>
-          ))}
+        
+        {/* Platforms Filter */}
+        <div className="mobile-filter-section">
+          <h4>Available Platforms</h4>
+          <div className="platform-filters">
+            {platformOptions.map(platform => (
+              <label key={platform} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={filters.platforms.includes(platform)}
+                  onChange={() => handlePlatformToggle(platform)}
+                />
+                <span>{platform}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        
+        {/* Logout Button */}
+        <div className="mobile-menu-actions">
+          <button className="logout-btn" onClick={handleLogout}>
+            <i className="fas fa-sign-out-alt"></i>
+            Logout
+          </button>
+          <button className="clear-filters-btn" onClick={handleClearFilters}>
+            <i className="fas fa-filter"></i>
+            Clear Filters
+          </button>
         </div>
       </div>
     </div>
@@ -435,193 +441,179 @@ const CustomerDashboard = () => {
   };
   
   // Main render
-  if (loading && products.length === 0) {
+  if (loading && initialLoad) {
     return <LoadingSpinner fullscreen={true} />;
-  }
-  
-  if (error) {
-    return <ErrorMessage message={error} onRetry={loadProducts} />;
   }
   
   return (
     <div className="customer-dashboard">
-      {/* Hero/Featured Section */}
-      <div className="dashboard-hero">
-        <div className="hero-content">
-          <h1>Discover Amazing Products</h1>
-          <p>Find the best deals across multiple platforms</p>
-          <div className="search-bar">
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search products..."
-              defaultValue={filters.search}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-            <button className="search-btn">
-              <i className="fas fa-search"></i>
-            </button>
+      {/* Top Navigation Bar - Sticky */}
+      <nav className="top-nav">
+        <div className="nav-container">
+          {/* Desktop: Logo on left */}
+          <div className="nav-logo desktop-only">
+            <i className="fas fa-store"></i>
+            <span>E-Shop</span>
+          </div>
+          
+          {/* Mobile: Hamburger menu */}
+          <button className="mobile-menu-btn" onClick={toggleMobileMenu}>
+            <i className="fas fa-bars"></i>
+          </button>
+          
+          {/* Search Bar - Centered */}
+          <div className="nav-search">
+            <div className="search-bar">
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search products..."
+                defaultValue={filters.search}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+              <button className="search-btn">
+                <i className="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+          
+          {/* User Profile - Top Right */}
+          <div className="nav-user">
+            <div className="user-profile">
+              <div className="user-avatar">
+                <i className="fas fa-user"></i>
+              </div>
+              <div className="user-info desktop-only">
+                <div className="user-name">user1@gmail.com</div>
+                <div className="user-role">CUSTOMER</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </nav>
       
-      {/* Featured Collections Banner */}
-      {!filters.search && !filters.category && products.length > 0 && (
-        <div className="collections-banner">
-          <div className="collection-item" onClick={() => handleFilterChange({ isNew: true })}>
-            <i className="fas fa-star"></i>
-            <span>New Arrivals</span>
-          </div>
-          <div className="collection-item" onClick={() => handleFilterChange({ localSale: true })}>
-            <i className="fas fa-tag"></i>
-            <span>On Sale</span>
-          </div>
-          <div className="collection-item" onClick={() => handleFilterChange({ inStock: true })}>
-            <i className="fas fa-check-circle"></i>
-            <span>In Stock</span>
-          </div>
-          <div className="collection-item" onClick={() => handleFilterChange({ hasExternalLinks: true })}>
-            <i className="fas fa-external-link-alt"></i>
-            <span>External Links</span>
-          </div>
-        </div>
-      )}
+      {/* Mobile Menu Drawer */}
+      {renderMobileMenu()}
       
       {/* Main Content */}
-      <div className="dashboard-content">
-        {/* Sidebar Filters */}
-        <aside className="filters-container">
-          {renderFiltersSidebar()}
-        </aside>
+      <main className="dashboard-main">
+        {/* Page Header */}
+        <div className="page-header">
+          <h1>Discover Amazing Products</h1>
+          <p>Find the best deals across multiple platforms</p>
+        </div>
         
-        {/* Main Products Area */}
-        <main className="products-main">
-          {/* Header with sort and results count */}
-          <div className="products-header">
-            <div className="results-info">
-              <h2>
-                {filters.category ? 
-                  categories.find(c => c.id === filters.category)?.name || 'Category' : 
-                  'All Products'
-                }
-              </h2>
+        {/* Results Info and Sort */}
+        <div className="results-header">
+          <div className="results-info">
+            <h2>
+              {filters.category ? 
+                categories.find(c => (c.id || c._id) === filters.category)?.name || 'Category' : 
+                'All Products'
+              }
+            </h2>
+            {pagination.total > 0 && (
               <span className="results-count">
                 Showing {products.length} of {pagination.total} products
                 {filters.search && ` for "${filters.search}"`}
               </span>
-            </div>
-            
-            <div className="sort-options">
-              <select
-                value={filters.sortBy}
-                onChange={(e) => handleSortChange(e.target.value)}
-                className="sort-select"
-              >
-                <option value="newest">Newest First</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-                <option value="rating">Top Rated</option>
-                <option value="popular">Most Popular</option>
-                <option value="name_asc">Name: A-Z</option>
-                <option value="name_desc">Name: Z-A</option>
-              </select>
-              <div className="mobile-filters-btn" onClick={() => {
-                document.querySelector('.filters-container').classList.toggle('mobile-show');
-              }}>
-                <i className="fas fa-filter"></i>
-              </div>
-            </div>
+            )}
           </div>
           
-          {/* Featured Collections (Show when no filters applied) */}
-          {!filters.search && !filters.category && products.length > 0 && (
-            <div className="featured-collections">
-              {renderCollectionSection('Featured Products', featuredProducts, 'featured', 'star')}
-              {renderCollectionSection('Trending Now', trendingProducts, 'trending', 'fire')}
-              {renderCollectionSection('New Arrivals', newArrivals, 'new', 'newspaper')}
-              {renderCollectionSection('On Sale', saleProducts, 'sale', 'tag')}
-            </div>
-          )}
-          
-          {/* Active Filters */}
-          {(filters.search || filters.category || filters.minPrice || filters.maxPrice || 
-            filters.inStock || filters.localSale || filters.platforms.length > 0) && (
-            <div className="active-filters">
-              <h4>Active Filters:</h4>
-              <div className="filter-chips">
-                {filters.search && (
-                  <span className="filter-chip">
-                    Search: {filters.search}
-                    <button onClick={() => handleFilterChange({ search: '' })}>×</button>
-                  </span>
-                )}
-                {filters.category && (
-                  <span className="filter-chip">
-                    Category: {categories.find(c => c.id === filters.category)?.name || filters.category}
-                    <button onClick={() => handleFilterChange({ category: '' })}>×</button>
-                  </span>
-                )}
-                {(filters.minPrice || filters.maxPrice) && (
-                  <span className="filter-chip">
-                    Price: ₹{filters.minPrice || 0} - ₹{filters.maxPrice || '∞'}
-                    <button onClick={() => handleFilterChange({ minPrice: '', maxPrice: '' })}>×</button>
-                  </span>
-                )}
-                {filters.inStock && (
-                  <span className="filter-chip">
-                    In Stock Only
-                    <button onClick={() => handleFilterChange({ inStock: false })}>×</button>
-                  </span>
-                )}
-                {filters.localSale && (
-                  <span className="filter-chip">
-                    Local Sale
-                    <button onClick={() => handleFilterChange({ localSale: false })}>×</button>
-                  </span>
-                )}
-                {filters.platforms.map(platform => (
-                  <span key={platform} className="filter-chip">
-                    {platform}
-                    <button onClick={() => handlePlatformToggle(platform)}>×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Products Grid */}
-          {products.length > 0 ? (
-            <>
-              <div className="products-grid">
-                {products.map(product => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    showPlatforms={true}
-                    showStock={true}
-                    showCategory={true}
-                  />
-                ))}
-              </div>
-              
-              {/* Pagination */}
-              {pagination.totalPages > 1 && renderPagination()}
-            </>
-          ) : (
-            <div className="no-results">
-              <i className="fas fa-search fa-3x"></i>
-              <h3>No products found</h3>
-              <p>Try adjusting your filters or search terms</p>
-              <button className="clear-filters-btn" onClick={handleClearFilters}>
-                Clear All Filters
+          <div className="sort-options">
+            <select
+              value={filters.sortBy}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="sort-select"
+            >
+              <option value="newest">Newest First</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="rating">Top Rated</option>
+              <option value="popular">Most Popular</option>
+            </select>
+            
+            {/* Mobile Filter Button */}
+            <button className="mobile-filter-btn" onClick={toggleMobileMenu}>
+              <i className="fas fa-filter"></i>
+              <span>Filters</span>
+            </button>
+          </div>
+        </div>
+        
+        {/* Active Filters */}
+        {(filters.search || filters.category || filters.minPrice || filters.maxPrice || 
+          filters.platforms.length > 0) && (
+          <div className="active-filters">
+            <div className="filter-chips">
+              {filters.search && (
+                <span className="filter-chip">
+                  Search: {filters.search}
+                  <button onClick={() => handleFilterChange({ search: '' })}>×</button>
+                </span>
+              )}
+              {filters.category && (
+                <span className="filter-chip">
+                  Category: {categories.find(c => (c.id || c._id) === filters.category)?.name || filters.category}
+                  <button onClick={() => handleFilterChange({ category: '' })}>×</button>
+                </span>
+              )}
+              {(filters.minPrice || filters.maxPrice) && (
+                <span className="filter-chip">
+                  Price: ₹{filters.minPrice || 0} - ₹{filters.maxPrice || '∞'}
+                  <button onClick={() => handleFilterChange({ minPrice: '', maxPrice: '' })}>×</button>
+                </span>
+              )}
+              {filters.platforms.map(platform => (
+                <span key={platform} className="filter-chip">
+                  {platform}
+                  <button onClick={() => handlePlatformToggle(platform)}>×</button>
+                </span>
+              ))}
+              <button className="clear-all-filters" onClick={handleClearFilters}>
+                Clear All
               </button>
             </div>
-          )}
-          
-          {/* Loading overlay for subsequent loads */}
-          {loading && <div className="loading-overlay"><LoadingSpinner /></div>}
-        </main>
-      </div>
+          </div>
+        )}
+        
+        {/* Products Grid */}
+        {loading && !initialLoad ? (
+          <div className="loading-products">
+            <LoadingSpinner />
+            <p>Loading products...</p>
+          </div>
+        ) : error ? (
+          <ErrorMessage message={error} onRetry={() => handleFilterChange({})} />
+        ) : products.length > 0 ? (
+          <>
+            <div className="products-grid">
+              {products.map(product => (
+                <ProductCard
+                  key={product.id || product._id}
+                  product={product}
+                  showPlatforms={true}
+                  showStock={true}
+                  showCategory={false}
+                  compact={false}
+                />
+              ))}
+            </div>
+            
+            {/* Pagination */}
+            {pagination.totalPages > 1 && renderPagination()}
+          </>
+        ) : (
+          <div className="no-results">
+            <i className="fas fa-search fa-3x"></i>
+            <h3>No products found</h3>
+            <p>Try adjusting your filters or search terms</p>
+            <button className="clear-filters-btn" onClick={handleClearFilters}>
+              Clear All Filters
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 };

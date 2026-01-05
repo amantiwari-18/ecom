@@ -31,7 +31,6 @@ public class ProductControllerV2 {
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
             @RequestParam(required = false) Boolean inStock,
-            @RequestParam(required = false) Boolean localSale,
             @RequestParam(required = false) List<String> platforms,
             @RequestParam(required = false) Boolean hasExternalLinks,
             @RequestParam(required = false) Boolean isNew,
@@ -47,7 +46,6 @@ public class ProductControllerV2 {
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .inStock(inStock)
-                .localSale(localSale)
                 .platforms(platforms)
                 .hasExternalLinks(hasExternalLinks)
                 .isNew(isNew)
